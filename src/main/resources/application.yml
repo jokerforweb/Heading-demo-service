@@ -1,0 +1,36 @@
+server:
+  port: 8088
+  servlet:
+    application-display-name: demo-service
+    context-path: /demo-service
+
+spring:
+  profiles:
+    active: dev
+  application:
+    name: demo-service
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/train?useUnicode=yes&characterEncoding=utf-8&useSSL=no&serverTimezone=GMT%2B8
+    username: sas
+    password: sas
+
+demo-service:
+  auth:
+    username: guest
+    password: guest
+
+#管理
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  endpoint:
+    env:
+      enabled: false
+    shutdown:
+      enabled: true
+    sessions:
+      enabled: false
