@@ -10,6 +10,7 @@
 package com.hd123.train.demo.dao.product;
 
 import com.hd123.rumba.commons.collection.CollectionUtil;
+import com.hd123.rumba.commons.jdbc.entity.PStandardEntity;
 import com.hd123.train.demo.controller.product.SKU;
 import org.apache.commons.lang3.ObjectUtils;
 

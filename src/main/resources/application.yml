@@ -12,9 +12,9 @@ spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/train?useUnicode=yes&characterEncoding=utf-8&useSSL=no&serverTimezone=GMT%2B8
-    username: sas
-    password: sas
+    url: jdbc:mysql://47.101.171.252:3306/HeadingRumba?useOldAliasMetadataBehavior=true&useUnicode=yes&characterEncoding=utf-8&useSSL=no&serverTimezone=GMT%2B8
+    username: admin
+    password: ly19980527
 
 demo-service:
   auth:
