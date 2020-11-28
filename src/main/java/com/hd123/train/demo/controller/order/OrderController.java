@@ -25,8 +25,9 @@ public class OrderController {
 
     /**
      * 创建订单
-     * 1. 防止订单重复创建
-     *
+     * 1. 订单存在则不可保存
+     * 2. 订单中商品不存在不可以创建订单
+     * 3. 商品库存不足不可以创建订单
      * @param order 订单信息
      * @return BaseResponse
      */
@@ -45,10 +46,12 @@ public class OrderController {
 
     /**
      * 保存订单
-     * 仅"已提交"的订单可以保存
-     *
-     * @param order
-     * @return
+     * 1. 仅"已提交"的订单可以保存
+     * 2. 商品不存在则不可以保存订单
+     * 3. 订单号不存在不可以保存订单
+     * 4. 商品库存不足不可以保存订单
+     * @param order 订单信息
+     * @return BaseResponse
      */
     @ApiOperation(value = "保存订单")
     @PostMapping(path = "/update")
@@ -76,9 +79,9 @@ public class OrderController {
 
     /**
      * 审核订单
-     * 1. 防止不存在订单信息的订单进行审核
-     * 1. 防止已审核或已作废的订单重复审核
-     *
+     * 1. 订单编号不存在不可以审核
+     * 2. 已审核或已作废的订单不可以审核
+     * 3. 库存不足审核失败
      * @param billNumber 订单号
      * @return BaseResponse
      */
@@ -110,8 +113,8 @@ public class OrderController {
 
     /**
      * 作废订单
-     * 1. 防止重复作废订单
-     *
+     * 1. 订单状态为已作废不可以作废
+     * 2. 订单状态为已审核，作废后会恢复商品库存
      * @param billNumber 订单号
      * @return BaseResponse
      */
