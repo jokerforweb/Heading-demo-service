@@ -89,10 +89,13 @@ public class DemoTest {
 
     /**
      * 练习1 初始化数据
-     * 每个商品的 RETAILCATALOG 的 BEGINDATE ~ ENDDATE 不能重叠。
-     * RETAILCATALOG 的PRICE 从100~999 不等。 测试SQL： SELECT count(*) as '商品价格溢出数' FROM RETAILCATALOG where PRICE > 999 or PRICE < 100
-     * 5% 的商品无RETAILCATALOG  测试SQL： SELECT count(*)/1000 as probability from PRODUCT P WHERE (SELECT COUNT(*) FROM RETAILCATALOG RC where RC.PRODUCTUUID = P.UUID ) = 0
-     * 5% 的商品，初始State=999  测试SQL ： SELECT (SELECT COUNT(*) from PRODUCT where STATE = '999')/COUNT(*) as probability FROM PRODUCT ;
+     * 1.  每个商品的 RETAILCATALOG 的 BEGINDATE ~ ENDDATE 不能重叠。
+     * 2.  RETAILCATALOG 的PRICE 从100~999 不等。
+     *         测试SQL： SELECT count(*) as '商品价格溢出数' FROM RETAILCATALOG where PRICE > 999 or PRICE < 100
+     * 3.  5% 的商品无RETAILCATALOG
+     *          测试SQL： SELECT count(*)/1000 as probability from PRODUCT P WHERE (SELECT COUNT(*) FROM RETAILCATALOG RC where RC.PRODUCTUUID = P.UUID ) = 0
+     * 4.  5% 的商品，初始State=999
+     *          测试SQL ： SELECT (SELECT COUNT(*) from PRODUCT where STATE = '999')/COUNT(*) as probability FROM PRODUCT ;
      */
     @Test
     public void addProductData() {
@@ -120,6 +123,11 @@ public class DemoTest {
         batch.update();
     }
 
+    /**
+     * 1. 使用UpdateBuilder构建UpdateStatement，修改指定商品的Price
+     * 2. 使用DeleteBuilder构建DeleteStatement删除指定的商品
+     * 3. 使用UpdateBuilder构建UpdateStatement， 将无RETAILCATALOG的商品，状态修改为999
+     */
     @Test
     public void Test2() {
         BatchUpdater batch = getBatchUpdaterInstance();
