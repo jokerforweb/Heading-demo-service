@@ -16,6 +16,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -29,9 +30,12 @@ public class OrderDao {
 
     /**
      * 创建订单
+     * 1. 不会被重复创建订单
+     *
      * @param order 订单信息
      * @return 订单是否创建成功
      */
+    @Transactional
     public synchronized boolean createOrder(Order order) {
         String uuid = UUID.randomUUID().toString().substring(0, 20);
         String billNumber = UUID.randomUUID().toString().substring(0, 30);
@@ -92,10 +96,12 @@ public class OrderDao {
 
     /**
      * 保存订单信息
+     *
      * @param order 订单信息
      */
     @Async
-    public void updateOrder(Order order) {
+    @Transactional
+    public boolean updateOrder(Order order) {
         BatchUpdater batchUpdater = new BatchUpdater(jdbcTemplate);
         UpdateStatement updateOrder = new UpdateBuilder()
                 .table("SR_SKU_ORDER")
@@ -125,7 +131,7 @@ public class OrderDao {
             } catch (EmptyResultDataAccessException excepted) {
                 // Do Nothing
             }
-            boolean isSkuEnough = orderLine.getQty().intValue() > skuQty;
+            boolean isSkuEnough = orderLine.getQty().intValue() <= skuQty;
             if (isSkuEnough) {
                 UpdateStatement updateSku = new UpdateBuilder()
                         .table("SR_SKU_ORDERLINE")
@@ -138,47 +144,56 @@ public class OrderDao {
                         .where(Predicates.equals("UUID", orderLine.getUuid()))
                         .build();
                 batchUpdater.add(updateSku);
+            } else {
+                return false;
             }
         }
         batchUpdater.update();
+        return true;
     }
 
     /**
      * 审核订单功能
+     *
      * @param billNumber 订单号
      * @return 审核订单是否成功
      */
-    public synchronized boolean checkOrder(String billNumber){
+    @Transactional
+    public synchronized boolean checkOrder(String billNumber) {
         BatchUpdater batchUpdater = new BatchUpdater(jdbcTemplate);
         String orderUuid = getOrderUuidByBillNumber(billNumber);
         // 获取订单中商品数量大于库存的订单明细数
         SelectStatement selectOrderLine = new SelectBuilder()
                 .select("count(*)").from("SR_SKU")
-                .where(Predicates.greaterOrEquals("stockQty",new SelectBuilder()
+                .where(Predicates.less("stockQty", new SelectBuilder()
                         .select("QTY").from("SR_SKU_ORDERLINE")
-                        .where(Predicates.equals("ORDERUUID",orderUuid))))
+                        .where(Predicates.equals("ORDERUUID", orderUuid))
+                        .where(Predicates.equals("SKUID",Expr.valueOf("SR_SKU.id")))
+                        .build()))
                 .build();
         int falseOrderCount = 0;
         Object[] params = new Object[]{
                 orderUuid
         };
-        falseOrderCount = jdbcTemplate.queryForObject(selectOrderLine.getSql(),params,Integer.class);
-        if (falseOrderCount > 0){
+        falseOrderCount = jdbcTemplate.queryForObject(selectOrderLine.getSql(), params, Integer.class);
+        if (falseOrderCount > 0) {
             return false;
         }
         // 修改订单信息
         UpdateStatement updateOrder = new UpdateBuilder()
                 .table("SR_SKU_ORDER")
-                .addValue("STATE",OrderStateEnum.AUDITED)
-                .where(Predicates.equals("BILLNUMBER",billNumber))
+                .addValue("STATE", OrderStateEnum.getAudited())
+                .where(Predicates.equals("BILLNUMBER", billNumber))
                 .build();
         batchUpdater.add(updateOrder);
         // 扣减对应商品库存
         UpdateStatement updateOrderLine = new UpdateBuilder()
                 .table("SR_SKU")
                 .addValue("stockQty",
-                        Expr.valueOf("stockQty - (Select QTY from SR_SKU_ORDERLINE where BILLNUMBER ="+billNumber+" )"))
+                        Expr.valueOf("stockQty - (Select QTY from SR_SKU_ORDERLINE where ORDERUUID = \'" +
+                                orderUuid + "\'  and SKUID = SR_SKU.id)"))
                 .build();
+        System.out.println(updateOrderLine.getSql());
         batchUpdater.add(updateOrderLine);
         batchUpdater.update();
         return true;
@@ -188,30 +203,36 @@ public class OrderDao {
      * 作废订单
      * @param billNumber 订单号
      */
-    public synchronized void abortOrder(String billNumber){
+    @Transactional
+    public synchronized void abortOrder(String billNumber, String state) {
         BatchUpdater batchUpdater = new BatchUpdater(jdbcTemplate);
-        UpdateStatement updateOrder = new UpdateBuilder()
-                .table("SR_SKU_ORDER")
-                .addValue("STATE",OrderStateEnum.ABORTED)
-                .where(Predicates.equals("BILLNUMBER",billNumber))
-                .build();
+        String orderUuid = getOrderUuidByBillNumber(billNumber);
+        if (state.equals(OrderStateEnum.getAudited())) {
+            UpdateStatement updateOrder = new UpdateBuilder()
+                    .table("SR_SKU_ORDER")
+                    .addValue("STATE", OrderStateEnum.getAborted())
+                    .where(Predicates.equals("BILLNUMBER", billNumber))
+                    .build();
+            batchUpdater.add(updateOrder);
+        }
         UpdateStatement updateOrderLine = new UpdateBuilder()
                 .table("SR_SKU")
                 .addValue("stockQty",
-                        Expr.valueOf("stockQty + (Select QTY from SR_SKU_ORDERLINE where BILLNUMBER ="+billNumber+" )"))
+                        Expr.valueOf("stockQty + (Select QTY from SR_SKU_ORDERLINE where ORDERUUID =\'" +
+                                orderUuid + "\'  and SKUID = SR_SKU.id)"))
                 .build();
         batchUpdater.add(updateOrderLine);
         batchUpdater.update();
     }
 
-    public String getOrderUuidByBillNumber(String billNumber){
+    public String getOrderUuidByBillNumber(String billNumber) {
         String orderUuid = "";
         SelectStatement selectStatement = new SelectBuilder()
-                .select("UUID").from("ORDER")
-                .where(Predicates.equals("BILLNUMBER",billNumber))
+                .select("UUID").from("SR_SKU_ORDER")
+                .where(Predicates.equals("BILLNUMBER", billNumber))
                 .build();
         try {
-            orderUuid = jdbcTemplate.queryForObject(selectStatement.getSql(),new Object[]{billNumber},String.class);
+            orderUuid = jdbcTemplate.queryForObject(selectStatement.getSql(), new Object[]{billNumber}, String.class);
         } catch (EmptyResultDataAccessException excepted) {
             // Do Nothing
         }
@@ -220,6 +241,7 @@ public class OrderDao {
 
     /**
      * 判断该订单号是否存在
+     *
      * @param billNumber 订单号
      * @return 是否存在订单号
      */
@@ -235,5 +257,48 @@ public class OrderDao {
             // Do Nothing
         }
         return orderCount > 0;
+    }
+
+    public String getStateByBillNumber(String billNumber) throws EmptyResultDataAccessException {
+        SelectStatement selectState = new SelectBuilder()
+                .select("STATE").from("SR_SKU_ORDER")
+                .where(Predicates.equals("BILLNUMBER", billNumber))
+                .build();
+        Object[] params = new Object[]{
+                billNumber
+        };
+        String state = "";
+        state = jdbcTemplate.queryForObject(selectState.getSql(), params, String.class);
+        return state;
+    }
+
+    public List<String> getSkuIdsFromOrderLine(List<OrderLine> orderLines) {
+        int size = orderLines.size();
+        List<String> skuIds = new ArrayList<>(size);
+        for (OrderLine orderLine : orderLines) {
+            skuIds.add(orderLine.getSkuId());
+        }
+        return skuIds;
+    }
+
+    public boolean isSkuIdsExits(List<OrderLine> orderLines){
+        List<String> skuIds = getSkuIdsFromOrderLine(orderLines);
+        for (String skuId : skuIds) {
+            SelectStatement selectSku = new SelectBuilder()
+                    .select("count(*)").from("SR_SKU")
+                    .where(Predicates.equals("id",Expr.valueOf(skuId)))
+                    .build();
+            int skuCount = 0;
+
+            try{
+                skuCount = (int) jdbcTemplate.queryForObject(selectSku.getSql(),Integer.class);
+            } catch (EmptyResultDataAccessException excepted) {
+                // Do Nothing
+            }
+            if (skuCount == 0 ){
+                return false;
+            }
+        }
+        return true;
     }
 }
