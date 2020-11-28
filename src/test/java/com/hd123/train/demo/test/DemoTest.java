@@ -64,25 +64,25 @@ public class DemoTest {
     @Test
     public void test1() {
         InsertStatement insert = new InsertBuilder()
-                .table("SR_SKU")
-                .addValue("uuid", UUID.randomUUID().toString())
-                .addValue("spuid", "0001")
-                .addValue("id", "0001")
-                .addValue("name", "Apple/苹果 iPhone 11")
-                .addValue("image", "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1575191341219&di=deccfc3eef04af955e53d9cf0243fbad&imgtype=0&src=http%3A%2F%2Fdingyue.nosdn.127.net%2FoFrbOsoSF3PLjusd8gA3Y1O0tg6erCdGopyuKM1Ef4T9h1523946901622.jpg")
-                .addValue("marketPrice", new BigDecimal("1299"))
-                .addValue("price", new BigDecimal("999"))
+                .table(PSKU.TABLE_NAME)
+                .addValue(PSKU.UUID, UUID.randomUUID().toString())
+                .addValue(PSKU.SPUID, "0001")
+                .addValue(PSKU.ID, "0001")
+                .addValue(PSKU.NAME, "Apple/苹果 iPhone 11")
+                .addValue(PSKU.IMAGE, "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1575191341219&di=deccfc3eef04af955e53d9cf0243fbad&imgtype=0&src=http%3A%2F%2Fdingyue.nosdn.127.net%2FoFrbOsoSF3PLjusd8gA3Y1O0tg6erCdGopyuKM1Ef4T9h1523946901622.jpg")
+                .addValue(PSKU.MARKET_PRICE, new BigDecimal("1299"))
+                .addValue(PSKU.PRICE, new BigDecimal("999"))
                 .build();
         jdbcTemplate.update(insert);
         UpdateStatement update = new UpdateBuilder()
                 .table(PSKU.TABLE_NAME)
-                .addValue("name", "1")
+                .addValue(PSKU.NAME, "1")
                 .where(Predicates.equals(PSKU.ID, "0001"))
                 .build();
         jdbcTemplate.update(update);
         DeleteStatement delete = new DeleteBuilder()
                 .table(PSKU.TABLE_NAME)
-                .where(Predicates.equals("name", "1"))
+                .where(Predicates.equals(PSKU.NAME, "1"))
                 .build();
         jdbcTemplate.update(delete);
     }
@@ -91,11 +91,11 @@ public class DemoTest {
      * 练习1 初始化数据
      * 1.  每个商品的 RETAILCATALOG 的 BEGINDATE ~ ENDDATE 不能重叠。
      * 2.  RETAILCATALOG 的PRICE 从100~999 不等。
-     *         测试SQL： SELECT count(*) as '商品价格溢出数' FROM RETAILCATALOG where PRICE > 999 or PRICE < 100
+     * 测试SQL： SELECT count(*) as '商品价格溢出数' FROM RETAILCATALOG where PRICE > 999 or PRICE < 100
      * 3.  5% 的商品无RETAILCATALOG
-     *          测试SQL： SELECT count(*)/1000 as probability from PRODUCT P WHERE (SELECT COUNT(*) FROM RETAILCATALOG RC where RC.PRODUCTUUID = P.UUID ) = 0
+     * 测试SQL： SELECT count(*)/1000 as probability from PRODUCT P WHERE (SELECT COUNT(*) FROM RETAILCATALOG RC where RC.PRODUCTUUID = P.UUID ) = 0
      * 4.  5% 的商品，初始State=999
-     *          测试SQL ： SELECT (SELECT COUNT(*) from PRODUCT where STATE = '999')/COUNT(*) as probability FROM PRODUCT ;
+     * 测试SQL ： SELECT (SELECT COUNT(*) from PRODUCT where STATE = '999')/COUNT(*) as probability FROM PRODUCT ;
      */
     @Test
     public void addProductData() {
@@ -110,12 +110,12 @@ public class DemoTest {
                 state = 999;
             }
             InsertStatement insert = new InsertBuilder()
-                    .table("PRODUCT")
-                    .addValue("UUID", uuid)
-                    .addValue("CODE", code)
-                    .addValue("NAME", name)
-                    .addValue("ORDERPRICE", orderPrice)
-                    .addValue("STATE", state)
+                    .table(PPRODUCT.TABLE_NAME)
+                    .addValue(PPRODUCT.UUID, uuid)
+                    .addValue(PPRODUCT.CODE, code)
+                    .addValue(PPRODUCT.NAME, name)
+                    .addValue(PPRODUCT.ORDERPRICE, orderPrice)
+                    .addValue(PPRODUCT.STATE, state)
                     .build();
             batch.add(insert);
             addRetailCatalogData(uuid);
@@ -133,8 +133,8 @@ public class DemoTest {
         BatchUpdater batch = getBatchUpdaterInstance();
 
         // 使用UpdateBuilder构建UpdateStatement，修改指定商品的Price
-        // 待修改的uuid
-        String updateProductUuid = "00006f1f-9e37-4bd8-b";
+        // 待修改的uuid (RETAILCATALOG表中第一条)
+        String updateProductUuid = "f6b1af6d-39a5-41c1-a";
         UpdateStatement updateRetailCatalogPrie = new UpdateBuilder()
                 .table(PRETAILCATALOG.TABLE_NAME)
                 .addValue(PRETAILCATALOG.PRICE, "20.00")
@@ -143,8 +143,9 @@ public class DemoTest {
         jdbcTemplate.update(updateRetailCatalogPrie);
 
         // 使用DeleteBuilder构建DeleteStatement删除指定的商品
-        // 待删除的uuid
-        String deleteProductUuid = "000e0871-daab-45ec-8";
+        // 待删除的uuid (RETAILCATALOG表中第二条)
+        // 测试SQL select * from PRODUCT P,RETAILCATALOG RC where P.UUID = '4d5775c3-f110-491c-8' or RC.PRODUCTUUID = 'f739754f-80c0-4266-a'
+        String deleteProductUuid = "f739754f-80c0-4266-a";
         DeleteStatement deleteRetailCatalog = new DeleteBuilder()
                 .table(PRETAILCATALOG.TABLE_NAME)
                 .where(Predicates.equals(PRETAILCATALOG.PRODUCTUUID, deleteProductUuid))
@@ -164,8 +165,8 @@ public class DemoTest {
                 .where(Predicates.notExists(
                         new SelectBuilder()
                                 .from(PRETAILCATALOG.TABLE_NAME)
-                                .where(Predicates.equals(PPRODUCT.TABLE_NAME+"."+PPRODUCT.UUID,
-                                        Expr.valueOf(PRETAILCATALOG.TABLE_NAME+"."+PRETAILCATALOG.PRODUCTUUID)))
+                                .where(Predicates.equals(PPRODUCT.TABLE_NAME + "." + PPRODUCT.UUID,
+                                        Expr.valueOf(PRETAILCATALOG.TABLE_NAME + "." + PRETAILCATALOG.PRODUCTUUID)))
                                 .build()))
                 .build();
         batch.add(updateRetailCatalogState);
@@ -179,19 +180,19 @@ public class DemoTest {
         // 查询全部RETAILCATALOG表中PRICE > 100 的商品信息
         SelectStatement selectProductPrice = new SelectBuilder()
                 .select("*").from(PPRODUCT.TABLE_NAME)
-                .where(Predicates.in(PPRODUCT.TABLE_NAME,PRETAILCATALOG.UUID,new SelectBuilder()
+                .where(Predicates.in(PPRODUCT.TABLE_NAME, PRETAILCATALOG.UUID, new SelectBuilder()
                         .select(PRETAILCATALOG.PRODUCTUUID).distinct()
                         .from(PRETAILCATALOG.TABLE_NAME)
                         .where(Predicates.greaterOrEquals(PRETAILCATALOG.PRICE, 100))
                         .build()))
                 .build();
         List<Map<String, Object>> listProduct = jdbcTemplate.queryForList(selectProductPrice.getSql(), 100);
+        System.out.println("RETAILCATALOG表中PRICE > 100 商品数量：" + listProduct.size());
 
-        // 查询指定代码的商品，在指定日期的销售目录的PRICE
-        // 待查询的PRODUCT
-        Map productMap = listProduct.get(0);
-        String productDate = "2020-10-01";
-        String productCode = (String) productMap.get(PPRODUCT.CODE);
+        // 题：查询指定代码的商品，在指定日期的销售目录的PRICE(不包含截止日期)
+        // 数据为RETAILCATALOG第三条数据的Code 测试SQL：Select * from RETAILCATALOG where PRODUCTUUID = 'ab5c0565-d2b5-4e74-b'
+        String productCode = "8edcc710-16eb-450c-9";
+        String productDate = "2020-10-03";
         SelectStatement selectPriceInDate = new SelectBuilder()
                 .select(PRETAILCATALOG.PRICE)
                 .from(PRETAILCATALOG.TABLE_NAME)
@@ -200,32 +201,32 @@ public class DemoTest {
                         .from(PPRODUCT.TABLE_NAME)
                         .where(Predicates.equals(PPRODUCT.CODE, productCode))
                         .build()))
-                .where(Predicates.greaterOrEquals("0", Expr.valueOf("DATEDIFF(BEGINDATE,\'"+productDate+"\')")))
-                .where(Predicates.lessOrEquals("0", Expr.valueOf("DATEDIFF(ENDDATE,\'"+productDate+"\')")))
+                .where(Predicates.greaterOrEquals("0", Expr.valueOf("DATEDIFF(BEGINDATE,\'" + productDate + "\')")))
+                .where(Predicates.less("0", Expr.valueOf("DATEDIFF(ENDDATE,\'" + productDate + "\')")))
                 .build();
-        Object[] params = new Object[] {
+        Object[] params = new Object[]{
                 productCode
         };
         double price = 0;
         try {
-            price = jdbcTemplate.queryForObject(selectPriceInDate.getSql(), params , Double.class);
-            System.out.println("UUID:"+productMap.get(PPRODUCT.UUID)+";CODE:"+productMap.get(PPRODUCT.CODE)+";PRICE:"+price);
-        } catch (EmptyResultDataAccessException e){
+            price = jdbcTemplate.queryForObject(selectPriceInDate.getSql(), params, Double.class);
+            System.out.println("UUID:" + "ab5c0565-d2b5-4e74-b" + ";CODE:" + productCode + ";PRICE:" + price);
+        } catch (EmptyResultDataAccessException e) {
             System.out.println("该商品在此日期无销售记录");
         }
 
         // 查询PRODUCT中，存在20个及以上的REAILCATALOG的商品
         SelectStatement selectProductRetailCatalog = new SelectBuilder()
-                .select(PPRODUCT.TABLE_NAME+"."+PPRODUCT.UUID)
+                .select(PPRODUCT.TABLE_NAME + "." + PPRODUCT.UUID)
                 .from(PPRODUCT.TABLE_NAME)
-                .where(Predicates.lessOrEquals("20",new SelectBuilder()
+                .where(Predicates.lessOrEquals("20", new SelectBuilder()
                         .select("count(*)")
                         .from(PRETAILCATALOG.TABLE_NAME)
-                        .where(Predicates.equals(PRETAILCATALOG.TABLE_NAME+"."+PRETAILCATALOG.PRODUCTUUID,
-                                Expr.valueOf(PPRODUCT.TABLE_NAME+"."+PRETAILCATALOG.UUID)))
+                        .where(Predicates.equals(PRETAILCATALOG.TABLE_NAME + "." + PRETAILCATALOG.PRODUCTUUID,
+                                Expr.valueOf(PPRODUCT.TABLE_NAME + "." + PRETAILCATALOG.UUID)))
                         .build()))
                 .build();
-        List<Map<String,Object>> retailCatalogList = jdbcTemplate.queryForList(selectProductRetailCatalog.getSql());
+        List<Map<String, Object>> retailCatalogList = jdbcTemplate.queryForList(selectProductRetailCatalog.getSql());
         // 测试SQL ： select count(*) from PRODUCT WHERE (select count(*) from RETAILCATALOG where RETAILCATALOG.PRODUCTUUID = PRODUCT.UUID) >= 20
         System.out.println(retailCatalogList.size());
     }
@@ -238,23 +239,23 @@ public class DemoTest {
         }
         Date beginDate = null;
         Date endDate = null;
-        double price = getDoubleRangeRandom(100, 999);
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
         try {
             beginDate = format.parse("2020-10-01");
         } catch (ParseException excepted) {
             // Do Nothing
         }
-        for (int i = 0; i < getIntRangeRandom(0,50); i++) {
+        for (int i = 0; i < getIntRangeRandom(0, 50); i++) {
             String uuid = UUID.randomUUID().toString().substring(0, 20);
+            double price = getDoubleRangeRandom(100, 999);
             endDate = addDayOfDate(beginDate, getIntRangeRandom(1, 10));
             InsertStatement insert = new InsertBuilder()
-                    .table("RETAILCATALOG")
-                    .addValue("UUID", uuid)
-                    .addValue("PRODUCTUUID", productUuid)
-                    .addValue("BEGINDATE", beginDate)
-                    .addValue("ENDDATE", endDate)
-                    .addValue("PRICE", price)
+                    .table(PRETAILCATALOG.TABLE_NAME)
+                    .addValue(PRETAILCATALOG.UUID, uuid)
+                    .addValue(PRETAILCATALOG.PRODUCTUUID, productUuid)
+                    .addValue(PRETAILCATALOG.BEGINDATE, beginDate)
+                    .addValue(PRETAILCATALOG.ENDDATE, endDate)
+                    .addValue(PRETAILCATALOG.PRICE, price)
                     .build();
             batch.add(insert);
             beginDate = endDate;
@@ -263,7 +264,8 @@ public class DemoTest {
 
     /**
      * 将原日期新增n天后，但返回新日期
-     * @param date 原日期
+     *
+     * @param date   原日期
      * @param dayNum 新增天数
      * @return 新增天数后的Date类型数据
      */
@@ -277,8 +279,9 @@ public class DemoTest {
 
     /**
      * 获取指定范围内浮点类型数据
+     *
      * @param start 范围下限
-     * @param end 范围上限
+     * @param end   范围上限
      * @return 返回范围内的整数类型数据
      */
     public int getIntRangeRandom(int start, int end) {
@@ -288,8 +291,9 @@ public class DemoTest {
 
     /**
      * 获取指定范围内浮点类型数据
+     *
      * @param start 范围下限
-     * @param end 范围上限
+     * @param end   范围上限
      * @return 返回范围内的浮点类型数据
      */
     public double getDoubleRangeRandom(int start, int end) {
@@ -313,6 +317,7 @@ public class DemoTest {
 
     /**
      * 获取指定百分比概率下某一次是否成功
+     *
      * @param persent 百分比
      * @return boolean类型是否成功
      */
