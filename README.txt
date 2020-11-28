@@ -1,3 +1,5 @@
+http://wiki.app.hd123.cn/wiki/pages/viewpage.action?pageId=197969692
+
 一、创建订单测试用例:
 http://localhost:8088/demo-service/v1/demo/order/create
 
